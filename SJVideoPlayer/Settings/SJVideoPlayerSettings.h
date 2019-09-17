@@ -97,9 +97,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) UIColor *notReachableAndPlaybackStalledButtonBackgroundColor;
 
 
-// SJFloatSmallViewControlLayer
-@property (nonatomic, strong) UIImage *floatSmallViewCloseImage;
-
 // - deprecated properties -
 @property (nonatomic, strong, readonly) NSString *playFailedBtnTitle __deprecated;
 @property (nonatomic, strong, nullable) UIImage *playFailedBtnImage __deprecated;

@@ -1,17 +1,17 @@
 
 Pod::Spec.new do |s|
     s.name         = 'SJVideoPlayer'
-    s.version      = '2.6.5'
+    s.version      = '2.5.7'
     s.summary      = 'video player.'
     s.description  = 'https://github.com/changsanjiang/SJVideoPlayer/blob/master/README.md'
     s.homepage     = 'https://github.com/changsanjiang/SJVideoPlayer'
     s.license      = { :type => 'MIT', :file => 'LICENSE.md' }
     s.author       = { 'SanJiang' => 'changsanjiang@gmail.com' }
-    s.platform     = :ios, '9.0'
+    s.platform     = :ios, '8.0'
     s.source       = { :git => 'https://github.com/changsanjiang/SJVideoPlayer.git', :tag => "v#{s.version}" }
     s.requires_arc = true
     s.dependency 'Masonry'
-    s.dependency 'SJBaseVideoPlayer', '>= 2.7.0'
+    s.dependency 'SJBaseVideoPlayer', '= 2.4.4'
     s.dependency 'SJUIKit/AttributesFactory'
 
     s.source_files = 'SJVideoPlayer/*.{h,m}'
@@ -37,11 +37,15 @@ Pod::Spec.new do |s|
         ss.source_files = 'SJVideoPlayer/SJProgressSlider/*.{h,m}'
     end
 
+    # 加载圈圈
+    s.subspec 'SJLoadingView' do |ss|
+        ss.source_files = 'SJVideoPlayer/SJLoadingView/*.{h,m}'
+    end
+
     s.subspec 'Settings' do |ss|
         ss.source_files = 'SJVideoPlayer/Settings/*.{h,m}'
         ss.dependency 'SJVideoPlayer/SJFilmEditingControlLayer/ResourceLoader'
         ss.dependency 'SJVideoPlayer/SJEdgeControlLayer/ResourceLoader'
-        ss.dependency 'SJVideoPlayer/SJFloatSmallViewControlLayer/ResourceLoader'
     end
 
     # 边缘控制层
@@ -56,17 +60,13 @@ Pod::Spec.new do |s|
         ss.subspec 'View' do |v|
             v.source_files = 'SJVideoPlayer/SJEdgeControlLayer/View/*.{h,m}'
             v.dependency 'SJVideoPlayer/SJEdgeControlLayer/ResourceLoader'
-            v.dependency 'SJVideoPlayer/SJEdgeControlLayer/Defines'
-        end
-        
-        ss.subspec 'Defines' do |ss|
-            ss.source_files = 'SJVideoPlayer/SJEdgeControlLayer/Defines/*.{h}'
         end
 
         ss.dependency 'SJVideoPlayer/Adapters'
         ss.dependency 'SJVideoPlayer/Switcher'
         ss.dependency 'SJVideoPlayer/Common'
         ss.dependency 'SJVideoPlayer/SJProgressSlider'
+        ss.dependency 'SJVideoPlayer/SJLoadingView'
     end
     
     s.subspec 'SJFilmEditingControlLayer' do |f|
@@ -99,25 +99,10 @@ Pod::Spec.new do |s|
     s.subspec 'SJMoreSettingControlLayer' do |ss|
         ss.source_files = 'SJVideoPlayer/SJMoreSettingControlLayer/*.{h,m}'
         ss.dependency 'SJVideoPlayer/SJEdgeControlLayer'
-    end
-    
-    s.subspec 'SJSwitchVideoDefinitionControlLayer' do |ss|
-        ss.source_files = 'SJVideoPlayer/SJSwitchVideoDefinitionControlLayer/*.{h,m}'
-        ss.dependency 'SJVideoPlayer/Adapters'
-        ss.dependency 'SJVideoPlayer/Common'
-        ss.dependency 'SJVideoPlayer/Switcher'
-    end
-    
-    # 浮窗小视图的控制层
-    s.subspec 'SJFloatSmallViewControlLayer' do |ss|
-      ss.source_files = 'SJVideoPlayer/SJFloatSmallViewControlLayer/*.{h,m}'
-      ss.subspec 'ResourceLoader' do |a|
-        a.source_files = 'SJVideoPlayer/SJFloatSmallViewControlLayer/ResourceLoader/*.{h,m}'
-        a.resource = 'SJVideoPlayer/SJFloatSmallViewControlLayer/ResourceLoader/SJFloatSmallViewControlLayer.bundle'
-      end
-      ss.dependency 'SJVideoPlayer/Common'
-      ss.dependency 'SJVideoPlayer/Adapters'
-      ss.dependency 'SJVideoPlayer/Switcher'
+
+        ss.subspec 'Core' do |sss|
+            sss.source_files = 'SJVideoPlayer/SJMoreSettingControlLayer/Core/*.{h,m}'
+        end
     end
 
 end

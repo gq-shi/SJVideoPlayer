@@ -8,20 +8,9 @@
 
 #import "SJEdgeControlLayerAdapters.h"
 #import "SJControlLayerDefines.h"
-@protocol SJNotReachableControlLayerDelegate;
-@class SJButtonContainerView;
 
 NS_ASSUME_NONNULL_BEGIN
 extern SJEdgeControlButtonItemTag const SJNotReachableControlLayerTopItem_Back;
-
-
-@interface SJNotReachableControlLayer : SJEdgeControlLayerAdapters<SJControlLayer>
-@property (nonatomic, weak, nullable) id<SJNotReachableControlLayerDelegate> delegate;
-@property (nonatomic, strong, readonly) UILabel *promptLabel;
-@property (nonatomic, strong, readonly) SJButtonContainerView *reloadView;
-@property (nonatomic) BOOL hideBackButtonWhenOrientationIsPortrait;
-@end
-
 
 @interface SJButtonContainerView : UIView
 - (instancetype)initWithEdgeInsets:(UIEdgeInsets)insets;
@@ -30,9 +19,14 @@ extern SJEdgeControlButtonItemTag const SJNotReachableControlLayerTopItem_Back;
 @property (nonatomic, strong, readonly) UIButton *button;
 @end
 
+@interface SJNotReachableControlLayer : SJEdgeControlLayerAdapters<SJControlLayer>
+@property (nonatomic, strong, readonly) UILabel *promptLabel;
+@property (nonatomic, strong, readonly) SJButtonContainerView *reloadView;
+@property (nonatomic) BOOL hideBackButtonWhenOrientationIsPortrait;
 
-@protocol SJNotReachableControlLayerDelegate <NSObject>
-- (void)tappedBackButtonOnTheControlLayer:(id<SJControlLayer>)controlLayer;
-- (void)tappedReloadButtonOnTheControlLayer:(id<SJControlLayer>)controlLayer;
+@property (nonatomic, copy, nullable) void(^clickedBackButtonExeBlock)(__kindof SJNotReachableControlLayer *control);
+@property (nonatomic, copy, nullable) void(^clickedReloadButtonExeBlock)(__kindof SJNotReachableControlLayer *control);
+@property (nonatomic, copy, nullable) void(^prepareToPlayNewAssetExeBlock)(__kindof SJNotReachableControlLayer *control);
+@property (nonatomic, copy, nullable) void(^playStatusDidChangeExeBlock)(__kindof SJNotReachableControlLayer *control);
 @end
 NS_ASSUME_NONNULL_END

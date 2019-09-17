@@ -61,10 +61,10 @@
     self.alpha = 1;
     CABasicAnimation *rotationAnim = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
     rotationAnim.toValue = [NSNumber numberWithFloat:2 * M_PI];
-    rotationAnim.duration = self->_speed;
+    rotationAnim.duration = _speed;
     rotationAnim.repeatCount = CGFLOAT_MAX;
     rotationAnim.removedOnCompletion = NO;
-    [self->_gradientLayer addAnimation:rotationAnim forKey:@"rotation"];
+    [_gradientLayer addAnimation:rotationAnim forKey:@"rotation"];
 }
 
 - (void)stop {

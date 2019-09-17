@@ -72,14 +72,13 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 
 @property (nonatomic, strong, readonly) SJTimerControl *lockStateTappedTimerControl;
 @property (nonatomic, strong, readonly) SJVideoPlayerDraggingProgressView *draggingProgressView;
+@property (nonatomic, strong, readonly) SJNetworkLoadingView *loadingView;
 @property (nonatomic, strong, readonly) SJProgressSlider *bottomProgressSlider;
 
 // back
 @property (nonatomic, strong, readonly) UIButton *residentBackButton;
 @property (nonatomic, strong, readonly) SJEdgeControlButtonItem *backItem;
 @property (nonatomic, strong, nullable) id<SJReachabilityObserver> reachabilityObserver;
-
-@property (nonatomic, strong, nullable) NSString *durationStr;
 @end
 
 @implementation SJEdgeControlLayer
@@ -88,9 +87,9 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 /// 切换器(player.switcher)重启该控制层
 - (void)restartControlLayer {
     _restarted = YES;
-    sj_view_makeAppear(self.controlView, YES);
     if ( _videoPlayer.URLAsset ) {
         [_videoPlayer controlLayerNeedAppear];
+        sj_view_makeAppear(self.controlView, YES);
     }
     else {
         [_videoPlayer controlLayerNeedDisappear];
@@ -120,11 +119,9 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if ( !self ) return nil;
-    _bottomProgressSliderHeight = 1;
     [self _setupView];
     self.autoAdjustTopSpacing = YES;
     self.hideBottomProgressSlider = YES;
-    self.showLoadingViewWhenPlaybackStatusIsSeeking = YES;
     return self;
 }
 
@@ -135,6 +132,11 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
     [self _addItemsToBottomAdapter];
     [self _addItemsToRightAdapter];
     [self _addItemsToCenterAdapter];
+    
+    [self.controlView addSubview:self.loadingView];
+    [_loadingView mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.center.offset(0);
+    }];
     
     self.topContainerView.sjv_disappearDirection = SJViewDisappearAnimation_Top;
     self.leftContainerView.sjv_disappearDirection = SJViewDisappearAnimation_Left;
@@ -149,22 +151,12 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 }
 
 - (void)_buttonItemPerformedAction:(SJEdgeControlButtonItem *)item {
-    if ( [_topAdapter containsItem:item] ) {
-        if ( item.tag == SJEdgeControlLayerTopItem_Back )
-            return;
-    }
-    
-    if ( [_bottomAdapter containsItem:item] ) {
-        if ( item.tag == SJEdgeControlLayerBottomItem_FullBtn )
-            return;
-    }
-    
     if ( [_topAdapter containsItem:item] ||
          [_leftAdapter containsItem:item] ||
          [_bottomAdapter containsItem:item] ||
          [_rightAdapter containsItem:item] ||
          [_centerAdapter containsItem:item] ) {
-        [_videoPlayer controlLayerNeedAppear]; // 此处为重置控制层的隐藏间隔.(如果点击到当前控制层上的item, 则重置控制层的隐藏间隔)
+        [_videoPlayer controlLayerNeedAppear]; // 如果点击到当前控制层上的item, 则重置控制层的隐藏间隔
     }
 }
 
@@ -218,9 +210,7 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 }
 
 - (void)clickedBackItem {
-    if ( [self.delegate respondsToSelector:@selector(tappedBackButtonOnTheControlLayer:)] ) {
-        [self.delegate tappedBackButtonOnTheControlLayer:self];
-    }
+    if ( _clickedBackItemExeBlock ) _clickedBackItemExeBlock(self);
 }
 
 - (void)setShowResidentBackButton:(BOOL)showResidentBackButton {
@@ -380,11 +370,12 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
              [self.videoPlayer playStatus_isPrepare] ) {
             return;
         }
-    
-        [self.videoPlayer seekToTime:CMTimeMakeWithSeconds(location, NSEC_PER_SEC)
-                     toleranceBefore:self.accurateSeeking?kCMTimeZero:kCMTimePositiveInfinity
-                      toleranceAfter:self.accurateSeeking?kCMTimeZero:kCMTimePositiveInfinity
-                   completionHandler:nil];
+        
+        [self.videoPlayer seekToTime:location completionHandler:^(BOOL finished) {
+            __strong typeof(_self) self = _self;
+            if ( !self ) return;
+            if ( finished ) [self.videoPlayer play];
+        }];
     };
     SJEdgeControlButtonItem *progressItem = [[SJEdgeControlButtonItem alloc] initWithCustomView:slider tag:SJEdgeControlLayerBottomItem_Progress];
     progressItem.delegate = self;
@@ -452,28 +443,27 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
         make.append(currentTimeStr).font([UIFont systemFontOfSize:11]).textColor([UIColor whiteColor]).alignment(NSTextAlignmentCenter);
     }];
     
-    if ( [durationStr isEqualToString:_durationStr?:@""] ) {
-        [_bottomAdapter updateContentForItemWithTag:SJEdgeControlLayerBottomItem_CurrentTime];
-    }
-    else {
-        _durationStr = durationStr;
+    [_bottomAdapter updateContentForItemWithTag:SJEdgeControlLayerBottomItem_CurrentTime];
+    
+    if ( ![durationStr isEqualToString:durationTimeItem.title.string?:@""] ) {
         durationTimeItem.title = [NSAttributedString sj_UIKitText:^(id<SJUIKitTextMakerProtocol>  _Nonnull make) {
             make.append(durationStr).font([UIFont systemFontOfSize:11]).textColor([UIColor whiteColor]).alignment(NSTextAlignmentCenter);
         }];
-        
-        // 00:00
-        // 00:00:00
-        NSString *ms = @"00:00";
-        NSString *hms = @"00:00:00";
-        NSString *format = (durationStr.length == ms.length)?ms:hms;
-        CGSize formatSize = [[NSAttributedString sj_UIKitText:^(id<SJUIKitTextMakerProtocol>  _Nonnull make) {
-            make.append(format).font([UIFont systemFontOfSize:11]).textColor([UIColor whiteColor]);
-        }] sj_textSize];
-        
-        currentTimeItem.size = formatSize.width;
-        durationTimeItem.size = formatSize.width;
+        currentTimeItem.size = durationTimeItem.size = [self _timeLabelMaxWidthByDurationStr:durationStr];
         [_bottomAdapter reload];
     }
+}
+
+- (CGFloat)_timeLabelMaxWidthByDurationStr:(NSString *)durationStr {
+    // 00:00
+    // 00:00:00
+    NSString *ms = @"00:00";
+    NSString *hms = @"00:00:00";
+    NSString *format = (durationStr.length == ms.length)?ms:hms;
+    CGSize size = [[NSAttributedString sj_UIKitText:^(id<SJUIKitTextMakerProtocol>  _Nonnull make) {
+        make.append(format).font([UIFont systemFontOfSize:11]).textColor([UIColor whiteColor]);
+    }] sj_textSize];
+    return size.width;
 }
 
 /// 更新播放进度
@@ -578,25 +568,13 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 }
 
 - (void)setHideBottomProgressSlider:(BOOL)hideBottomProgressSlider {
-    if ( hideBottomProgressSlider != _hideBottomProgressSlider ) {
-        _hideBottomProgressSlider = hideBottomProgressSlider;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self _showOrRemoveBottomProgressSlider];
-        });
-    }
-}
-
-- (void)setBottomProgressSliderHeight:(CGFloat)bottomProgressSliderHeight {
-    if ( bottomProgressSliderHeight != _bottomProgressSliderHeight ) {
-        
-        _bottomProgressSliderHeight = bottomProgressSliderHeight;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            self->_bottomProgressSlider.trackHeight = bottomProgressSliderHeight;
-            [self->_bottomProgressSlider mas_updateConstraints:^(MASConstraintMaker *make) {
-                make.height.offset(bottomProgressSliderHeight);
-            }];
-        });
-    }
+    if ( hideBottomProgressSlider == _hideBottomProgressSlider )
+        return;
+    
+    _hideBottomProgressSlider = hideBottomProgressSlider;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self _showOrRemoveBottomProgressSlider];
+    });
 }
 
 - (void)_showOrRemoveBottomProgressSlider {
@@ -711,45 +689,26 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
     [_videoPlayer replay];
 }
 
-- (void)setLoadingView:(nullable id<SJEdgeControlLayerLoadingViewProtocol>)loadingView {
-    if ( loadingView != _loadingView ) {
-        [(UIView *)_loadingView removeFromSuperview];
-        _loadingView = loadingView;
-        
-        if ( loadingView ) {
-            [self.controlView addSubview:(UIView *)loadingView];
-            [(UIView *)loadingView mas_makeConstraints:^(MASConstraintMaker *make) {
-                make.center.offset(0);
-            }];
-        }
-    }
-}
-
 @synthesize loadingView = _loadingView;
-- (id<SJEdgeControlLayerLoadingViewProtocol>)loadingView {
+- (SJNetworkLoadingView *)loadingView {
     if ( _loadingView ) return _loadingView;
     _loadingView = [SJNetworkLoadingView new];
     __weak typeof(self) _self = self;
-    ((UIView *)_loadingView).settingRecroder = [[SJVideoPlayerControlSettingRecorder alloc] initWithSettings:^(SJEdgeControlLayerSettings * _Nonnull setting) {
+    _loadingView.settingRecroder = [[SJVideoPlayerControlSettingRecorder alloc] initWithSettings:^(SJEdgeControlLayerSettings * _Nonnull setting) {
         __strong typeof(_self) self = _self;
         if ( !self ) return;
         self.loadingView.lineColor = setting.loadingLineColor;
     }];
     self.loadingView.lineColor = SJEdgeControlLayerSettings.commonSettings.loadingLineColor;
-    
-    [self.controlView addSubview:(UIView *)self.loadingView];
-    [(UIView *)_loadingView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.center.offset(0);
-    }];
     return _loadingView;
 }
 
 - (void)_updateNetworkSpeedStrForLoadingView {
-    if ( !_videoPlayer || !self.loadingView.isAnimating )
+    if ( !_videoPlayer || !_loadingView.isAnimating )
         return;
     
     if ( _showNetworkSpeedToLoadingView && !_videoPlayer.assetURL.isFileURL ) {
-        self.loadingView.networkSpeedStr = [NSAttributedString sj_UIKitText:^(id<SJUIKitTextMakerProtocol>  _Nonnull make) {
+        _loadingView.networkSpeedStr = [NSAttributedString sj_UIKitText:^(id<SJUIKitTextMakerProtocol>  _Nonnull make) {
             SJEdgeControlLayerSettings *settings = [SJEdgeControlLayerSettings commonSettings];
             make.font(settings.loadingNetworkSpeedTextFont);
             make.textColor(settings.loadingNetworkSpeedTextColor);
@@ -758,14 +717,14 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
         }];
     }
     else {
-        self.loadingView.networkSpeedStr = nil;
+        _loadingView.networkSpeedStr = nil;
     }
 }
 
 - (void)setShowNetworkSpeedToLoadingView:(BOOL)showNetworkSpeedToLoadingView {
     _showNetworkSpeedToLoadingView = showNetworkSpeedToLoadingView;
     if ( !showNetworkSpeedToLoadingView )
-        self.loadingView.networkSpeedStr = nil;
+        _loadingView.networkSpeedStr = nil;
 }
 
 @synthesize draggingProgressView = _draggingProgressView;
@@ -825,11 +784,12 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 
 /// 拖拽结束
 - (void)_draggingDidEnd:(__kindof SJBaseVideoPlayer *)videoPlayer {
-    [videoPlayer seekToTime:CMTimeMakeWithSeconds(_draggingProgressView.progressTime, NSEC_PER_SEC)
-            toleranceBefore:self.accurateSeeking?kCMTimeZero:kCMTimePositiveInfinity
-             toleranceAfter:self.accurateSeeking?kCMTimeZero:kCMTimePositiveInfinity
-          completionHandler:nil];
-    
+    __weak typeof(self) _self = self;
+    [videoPlayer seekToTime:_draggingProgressView.progressTime completionHandler:^(BOOL finished) {
+        __strong typeof(_self) self = _self;
+        if ( !self ) return;
+        [self.videoPlayer play];
+    }];
     sj_view_makeDisappear(_draggingProgressView, YES, ^{
         if ( sj_view_isDisappeared(self->_draggingProgressView) ) {
             [self->_draggingProgressView removeFromSuperview];
@@ -943,31 +903,28 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 
 - (void)_startOrStopLoadingView {
     if ( !_videoPlayer ) {
-        [self.loadingView stop];
+        [_loadingView stop];
         return;
     }
     
     SJPlayerBufferStatus bufferStatus = self.videoPlayer.playbackController.bufferStatus;
-    if ( [_videoPlayer playStatus_isPrepare] ) {
-        [self.loadingView start];
-    }
-    else if ( [_videoPlayer playStatus_isPaused_ReasonSeeking] ) {
-        if ( _showLoadingViewWhenPlaybackStatusIsSeeking )
-            [self.loadingView start];
+    if ( [_videoPlayer playStatus_isPaused_ReasonSeeking] ||
+         [_videoPlayer playStatus_isPrepare] ) {
+        [_loadingView start];
     }
     else if ( _videoPlayer.playbackController.bufferStatus == SJPlayerBufferStatusPlayable ||
              [_videoPlayer playStatus_isInactivity] ) {
-        [self.loadingView stop];
+        [_loadingView stop];
     }
     else {
         switch ( bufferStatus ) {
             case SJPlayerBufferStatusUnknown:
             case SJPlayerBufferStatusPlayable: {
-                [self.loadingView stop];
+                [_loadingView stop];
             }
                 break;
             case SJPlayerBufferStatusUnplayable: {
-                [self.loadingView start];
+                [_loadingView start];
                 [self _updateNetworkSpeedStrForLoadingView];
             }
                 break;
@@ -1138,14 +1095,12 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
     return [self _edgeControlButtonItem:item gestureRecognizerShouldTrigger:type atPoint:point];
 }
 - (BOOL)_edgeControlButtonItem:(SJEdgeControlButtonItem *)item gestureRecognizerShouldTrigger:(SJPlayerGestureType)type atPoint:(CGPoint)point {
-    if ( [item.target respondsToSelector:item.action] ) {
-        return YES;
-    }
-    
+    if ( item.target != nil ) return NO;
+    if ( !item ) return YES;
     if ( [item.delegate respondsToSelector:@selector(edgeControlButtonItem:gestureRecognizerShouldTrigger:atPoint:)] ) {
         return [item.delegate edgeControlButtonItem:item gestureRecognizerShouldTrigger:type atPoint:point];
     }
-    return YES;
+    return NO;
 }
 
 - (void)_callUpdatePropertiesMethodOfItemsForAdapter:(SJEdgeControlLayerItemAdapter *)adapter videoPlayer:(__kindof SJBaseVideoPlayer *)videoPlayer {
@@ -1227,14 +1182,7 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
 
 - (void)_top_updateTitleItem:(SJEdgeControlButtonItem *)titleItem {
     if ( _SJSlowPath(!titleItem) ) return;
-    
-    SJVideoPlayerURLAsset *asset = _videoPlayer.URLAsset.originAsset?:_videoPlayer.URLAsset;
-    
-    if ( asset.title.length == 0 ) {
-        titleItem.hidden = YES;
-        return;
-    }
-    
+    SJVideoPlayerURLAsset *asset = _videoPlayer.URLAsset.otherMedia?:_videoPlayer.URLAsset;
     BOOL alwaysShowTitle = asset.alwaysShowTitle;
     BOOL isFullscreen = _videoPlayer.isFullScreen;
     BOOL isFitOnScreen = _videoPlayer.isFitOnScreen;
@@ -1246,7 +1194,7 @@ SJEdgeControlButtonItemTag const SJEdgeControlLayerCenterItem_Replay = 40000;
     
     if ( titleItem.hidden ) return;
     
-    NSString *title = asset.title;
+    NSString *title = asset.title?:@" ";
     // margin
     CGFloat left =
     [_topAdapter itemsIsHiddenWithRange:NSMakeRange(0, [_topAdapter indexOfItemForTag:SJEdgeControlLayerTopItem_Title])]?16:0;

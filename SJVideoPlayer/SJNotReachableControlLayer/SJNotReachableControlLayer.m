@@ -63,21 +63,6 @@ SJEdgeControlButtonItemTag const SJNotReachableControlLayerTopItem_Back = 10000;
 @implementation SJNotReachableControlLayer
 @synthesize restarted = _restarted;
 
-- (instancetype)initWithFrame:(CGRect)frame {
-    self = [super initWithFrame:frame];
-    if ( !self ) return nil;
-    [self _setupView];
-    return self;
-}
-
-- (UIView *)controlView {
-    return self;
-}
-
-- (void)installedControlViewToVideoPlayer:(__kindof SJBaseVideoPlayer *)videoPlayer {
-    [self _updateItems:videoPlayer];
-}
-
 - (void)restartControlLayer {
     _restarted = YES;
     sj_view_makeAppear(self.controlView, YES);
@@ -90,16 +75,19 @@ SJEdgeControlButtonItemTag const SJNotReachableControlLayerTopItem_Back = 10000;
     });
 }
 
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if ( !self ) return nil;
+    [self _setupView];
+    return self;
+}
+
 - (void)clickedBackItem:(SJEdgeControlButtonItem *)item {
-    if ( [self.delegate respondsToSelector:@selector(tappedBackButtonOnTheControlLayer:)] ) {
-        [self.delegate tappedBackButtonOnTheControlLayer:self];
-    }
+    if ( _clickedBackButtonExeBlock ) _clickedBackButtonExeBlock(self);
 }
 
 - (void)clickedReloadButton {
-    if ( [self.delegate respondsToSelector:@selector(tappedReloadButtonOnTheControlLayer:)] ) {
-        [self.delegate tappedReloadButtonOnTheControlLayer:self];
-    }
+    if ( _clickedReloadButtonExeBlock ) _clickedReloadButtonExeBlock(self);
 }
 
 - (void)_setupView {
@@ -139,13 +127,28 @@ SJEdgeControlButtonItemTag const SJNotReachableControlLayerTopItem_Back = 10000;
     }];
 }
 
+- (UIView *)controlView {
+    return self;
+}
+
 - (BOOL)videoPlayer:(__kindof SJBaseVideoPlayer *)videoPlayer gestureRecognizerShouldTrigger:(SJPlayerGestureType)type location:(CGPoint)location {
     return NO;
 }
 
+- (void)installedControlViewToVideoPlayer:(__kindof SJBaseVideoPlayer *)videoPlayer {
+    [self _updateItems:videoPlayer];
+}
+
+- (void)videoPlayer:(__kindof SJBaseVideoPlayer *)videoPlayer prepareToPlay:(SJVideoPlayerURLAsset *)asset {
+    if ( _prepareToPlayNewAssetExeBlock ) _prepareToPlayNewAssetExeBlock(self);
+}
+
+- (void)videoPlayer:(__kindof SJBaseVideoPlayer *)videoPlayer statusDidChanged:(SJVideoPlayerPlayStatus)status {
+    if ( _playStatusDidChangeExeBlock ) _playStatusDidChangeExeBlock(self);
+}
+
 - (void)controlLayerNeedAppear:(__kindof SJBaseVideoPlayer *)videoPlayer {}
 - (void)controlLayerNeedDisappear:(__kindof SJBaseVideoPlayer *)videoPlayer {}
-
 - (void)videoPlayer:(__kindof SJBaseVideoPlayer *)videoPlayer willRotateView:(BOOL)isFull {
     [self _updateItems:videoPlayer];
 }
