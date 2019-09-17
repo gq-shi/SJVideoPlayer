@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
     s.source       = { :git => 'https://github.com/changsanjiang/SJVideoPlayer.git', :tag => "v#{s.version}" }
     s.requires_arc = true
     s.dependency 'Masonry'
-    s.dependency 'SJBaseVideoPlayer', :git => 'https://github.com/gq-shi/HYBHelperKit.git'
+    s.dependency 'SJBaseVideoPlayer'
     s.dependency 'SJUIKit/AttributesFactory'
 
     s.source_files = 'SJVideoPlayer/*.{h,m}'
